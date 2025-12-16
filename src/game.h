@@ -17,16 +17,7 @@ public:
 private:
     static constexpr int kMapWidth = 8;
     static constexpr int kMapHeight = 8;
-    int map[kMapHeight][kMapWidth] = {
-        {1,1,1,1,1,1,1,1},
-        {1,0,0,0,0,0,0,1},
-        {1,0,1,0,1,0,0,1},
-        {1,0,1,0,1,0,1,1},
-        {1,0,0,0,0,0,0,1},
-        {1,0,1,0,1,0,0,1},
-        {1,0,0,0,0,1,0,1},
-        {1,1,1,1,1,1,1,1},
-    };
+    int map[kMapHeight][kMapWidth] = {};
 
     Texture2D wallTex{};
     Texture2D floorTex{};

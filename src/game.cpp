@@ -1,6 +1,8 @@
 #include "game.h"
 
 #include "raylib.h"
+#include "rlgl.h"
+#include "maze_builder.h"
 #include <cmath>
 
 #define SPRITE_SIZE 16
@@ -17,6 +19,8 @@ static Texture2D LoadTileTexture(const Image &sheet, int tileIndex)
 
 Game::Game()
 {
+    GenerateMaze(kMapWidth, kMapHeight, &map[0][0]);
+
     Image sheet = LoadImage("assets/textures/spritesheet.png");
     wallTex = LoadTileTexture(sheet, 0);
     floorTex = LoadTileTexture(sheet, 1);
@@ -26,20 +30,20 @@ Game::Game()
     ceilingTex[3] = LoadTileTexture(sheet, 5);
     UnloadImage(sheet);
 
-    Mesh cubeMesh = GenMeshCube(1.0f, 1.0f, 1.0f);
-    wallModel = LoadModelFromMesh(cubeMesh);
+    Mesh planeMesh = GenMeshPlane(1.0f, 1.0f, 1, 1);
+    wallModel = LoadModelFromMesh(planeMesh);
     SetMaterialTexture(&wallModel.materials[0], MATERIAL_MAP_ALBEDO, wallTex);
 
-    Mesh floorMesh = GenMeshCube(1.0f, 1.0f, 1.0f);
+    Mesh floorMesh = GenMeshPlane(1.0f, 1.0f, 1, 1);
     floorModel = LoadModelFromMesh(floorMesh);
     SetMaterialTexture(&floorModel.materials[0], MATERIAL_MAP_ALBEDO, floorTex);
 
-    Mesh ceilMesh = GenMeshCube(1.0f, 1.0f, 1.0f);
+    Mesh ceilMesh = GenMeshPlane(1.0f, 1.0f, 1, 1);
     ceilModel = LoadModelFromMesh(ceilMesh);
     SetMaterialTexture(&ceilModel.materials[0], MATERIAL_MAP_ALBEDO, ceilingTex[0]); 
 
-    camera.position = { 2.5f, 0.75f, 2.5f };
-    camera.target = { 1.0f, 1.0f, 2.5f };
+    camera.position = { 1.5f, 0.75f, 1.5f };
+    camera.target = { 2.5f, 0.75f, 1.5f };
     camera.up = { 0.0f, 1.0f, 0.0f };
     camera.fovy = 70.0f;
     camera.projection = CAMERA_PERSPECTIVE;
@@ -58,22 +62,20 @@ Game::~Game()
 void Game::Update()
 {
     const float dt = GetFrameTime();
-    const float mouseSensitivity = 0.15f;
+    const float mouseSensitivity = 0.25f;
 
     Vector3 move = {0};
-    if (IsKeyDown(KEY_W)) move.x += 1.0f;
-    if (IsKeyDown(KEY_S)) move.x -= 1.0f;
-    if (IsKeyDown(KEY_D)) move.y += 1.0f;
-    if (IsKeyDown(KEY_A)) move.y -= 1.0f;
+    move.x = (IsKeyDown(KEY_W) ? 1.0f : 0.0f) - (IsKeyDown(KEY_S) ? 1.0f : 0.0f);
+    move.z = (IsKeyDown(KEY_D) ? 1.0f : 0.0f) - (IsKeyDown(KEY_A) ? 1.0f : 0.0f);
 
-    float len = std::sqrt(move.x * move.x + move.y * move.y);
+    float len = std::sqrt(move.x * move.x + move.z * move.z);
     if (len > 0.0001f)
     {
         move.x /= len;
-        move.y /= len;
+        move.z /= len;
     }
     move.x *= moveSpeed * dt;
-    move.y *= moveSpeed * dt;
+    move.z *= moveSpeed * dt;
 
     Vector2 mouseDelta = GetMouseDelta();
     Vector3 rot = { mouseDelta.x * mouseSensitivity, mouseDelta.y * mouseSensitivity, 0.0f };
@@ -83,10 +85,13 @@ void Game::Update()
 
 void Game::Draw()
 {
+    const float wallHeight = 1.0f;
+
     BeginDrawing();
     ClearBackground(SKYBLUE);
 
     BeginMode3D(camera);
+    rlDisableBackfaceCulling(); // Draw planes visible from both sides.
 
     for (int z = 0; z < kMapHeight; z++)
     {
@@ -94,19 +99,28 @@ void Game::Draw()
         {
             Vector3 tileCenter = { static_cast<float>(x), 0.0f, static_cast<float>(z) };
 
-            DrawModelEx(floorModel, { tileCenter.x, -0.05f, tileCenter.z }, { 0, 1, 0 }, 0.0f, { 1.0f, 0.1f, 1.0f }, WHITE);
+            DrawModelEx(floorModel, { tileCenter.x, 0.0f, tileCenter.z }, { 0, 1, 0 }, 0.0f, { 1.0f, 1.0f, 1.0f }, WHITE);
             
             Texture2D ceilTex = ceilingTex[(x + z) % 4];
             SetMaterialTexture(&ceilModel.materials[0], MATERIAL_MAP_ALBEDO, ceilTex);
-            DrawModelEx(ceilModel, { tileCenter.x, 1.05f, tileCenter.z }, { 0, 1, 0 }, 0.0f, { 1.0f, 0.1f, 1.0f }, WHITE);
+            DrawModelEx(ceilModel, { tileCenter.x, 1.0f, tileCenter.z }, { 0, 1, 0 }, 0.0f, { 1.0f, 1.0f, 1.0f }, WHITE);
 
             if (map[z][x] == 1)
             {
-                DrawModelEx(wallModel, { tileCenter.x, 0.5f, tileCenter.z }, { 0, 1, 0 }, 0.0f, { 1.0f, 1.0f, 1.0f }, WHITE);
+                // Use orientation based on edge direction.
+                if (x == 0 || x == kMapWidth - 1)
+                {
+                    DrawModelEx(wallModel, { tileCenter.x, wallHeight * 0.5f, tileCenter.z }, { 0, 0, 1 }, 90.0f, { wallHeight, 1.0f, 1.0f }, WHITE);
+                }
+                else if (z == 0 || z == kMapHeight - 1)
+                {
+                    DrawModelEx(wallModel, { tileCenter.x, wallHeight * 0.5f, tileCenter.z }, { 1, 0, 0 }, 90.0f, { 1.0f, 1.0f, wallHeight }, WHITE);
+                }
             }
         }
     }
 
+    rlEnableBackfaceCulling();
     EndMode3D();
 
     EndDrawing();
