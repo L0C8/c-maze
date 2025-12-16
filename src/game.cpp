@@ -66,16 +66,16 @@ void Game::Update()
 
     Vector3 move = {0};
     move.x = (IsKeyDown(KEY_W) ? 1.0f : 0.0f) - (IsKeyDown(KEY_S) ? 1.0f : 0.0f);
-    move.z = (IsKeyDown(KEY_D) ? 1.0f : 0.0f) - (IsKeyDown(KEY_A) ? 1.0f : 0.0f);
+    move.y = (IsKeyDown(KEY_D) ? 1.0f : 0.0f) - (IsKeyDown(KEY_A) ? 1.0f : 0.0f);
 
-    float len = std::sqrt(move.x * move.x + move.z * move.z);
+    float len = std::sqrt((move.x * move.x) + (move.y * move.y));
     if (len > 0.0001f)
     {
         move.x /= len;
-        move.z /= len;
+        move.y /= len;
     }
     move.x *= moveSpeed * dt;
-    move.z *= moveSpeed * dt;
+    move.y *= moveSpeed * dt;
 
     Vector2 mouseDelta = GetMouseDelta();
     Vector3 rot = { mouseDelta.x * mouseSensitivity, mouseDelta.y * mouseSensitivity, 0.0f };
